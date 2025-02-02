@@ -6,12 +6,13 @@ from lib.rest_server import RestServer
 from cmd_handler import CmdHandler
 from constants import Constants
 import utime
-import json
 import ubinascii
 
 from lib.umqttsimple import MQTTClient
 from lib.base_machine import BaseMachine
 from lib.config import MachineConfig
+from lib.util import get_json_stats
+
 
 class Display(Constants):
 
@@ -280,7 +281,7 @@ class ThisMachine(BaseMachine):
            @param wdt A WDT instance."""
         # Call base class constructor
         super().__init__(uo, configFile, activeAppKey, activeApp, wdt)
-        self._statsDict = None
+        self._statsDict = {}
         
         # Init the display to display the booting message as early as possible.
         self._display = Display(uo)
@@ -346,7 +347,7 @@ class ThisMachine(BaseMachine):
            @return True if stats updated."""
         updated = False
         if self._isNextStatsUpdateTime():
-            self._statsDict = self._projectCmdHandler.getStatsDict()
+            self._projectCmdHandler.getStatsDict(self._statsDict)
             updated = True
         return updated
 
@@ -399,11 +400,7 @@ class ThisMachine(BaseMachine):
         mqttPassword = self._machineConfig.get(Constants.MQTT_PASSWORD)
         txPeriodMS = self._machineConfig.get(Constants.MQTT_TX_PERIOD_MS)
         # If we have the required arguments to connect to an MQTT server
-        if mqttServerAddress and \
-           len(mqttServerAddress) > 0 and \
-           mqttServerPort >= 1 and mqttServerPort < 65536 and \
-           txPeriodMS >= 200 and \
-           len(mqttTopic) > 0:
+        if self.is_mq_info_set() and txPeriodMS >= 200:
             self._thisMQTTtxMS = utime.ticks_ms()
             self._elapsedMS = self._thisMQTTtxMS-self._lastMQTTtxMS
             if self._elapsedMS >= txPeriodMS:
@@ -420,7 +417,7 @@ class ThisMachine(BaseMachine):
                 #If we have a connection to the MQTT server
                 if self._mqttClient:
                     # Send json string to the MQTT server
-                    jsonStr = json.dumps( self._statsDict )
+                    jsonStr = get_json_stats(self._statsDict)
                     self._mqttClient.publish(mqttTopic, jsonStr)
                     self._uo.info(f"Sent stats to MQTT server ({self._connectedMQTTAddress}:{self._connectedMQTTPort}): {self._elapsedMS} ms.")
                                                
@@ -430,6 +427,17 @@ class ThisMachine(BaseMachine):
                 self._lastMQTTtxMS = self._thisMQTTtxMS
                 
                 # PJA Do we need to read from socket to make sure data doesn't fill input buffers ???
+
+
+    def is_mq_info_set(self):
+        mqttServerAddress = self._machineConfig.get(Constants.MQTT_SERVER_ADDRESS)
+        mqttServerPort = int(self._machineConfig.get(Constants.MQTT_SERVER_PORT))
+        mqttTopic = self._machineConfig.get(Constants.MQTT_TOPIC)
+
+        return mqttServerAddress and \
+            len(mqttServerAddress) > 0 and \
+            mqttServerPort >= 1 and mqttServerPort < 65536 and \
+            len(mqttTopic) > 0
 
     def serviceRunningMode(self):
         """@brief Perform actions required when up and running.

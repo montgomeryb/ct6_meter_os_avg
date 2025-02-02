@@ -46,11 +46,10 @@ class CmdHandler(BaseCmdHandler):
         tempC = tempC * 0.86
         return tempC
     
-    def getStatsDict(self):
+    def getStatsDict(self, readingsDict):
         """@brief Get all the stats for all 6 channels on the device. This is mainly the current, voltage and power stats 
                   but also includes the ATM90E32 core temperatures, ambient board temperature and WiFi RSSI.
            @return A dict containing te stats, E.G port power, etc."""
-        retDict = {}
         ctType = "?"
         name = "?"
         iRMS = "?"
@@ -141,32 +140,44 @@ class CmdHandler(BaseCmdHandler):
                 temp = self._cs0ATM90E32.Temp
                 freq = self._cs0ATM90E32.Freq
 
-            # PJA move these names to Constants
-            sensorDict = {Constants.TYPE_KEY: ctType,
-                          Constants.NAME: name,
-                          Constants.IRMS: iRMS,
-                          Constants.IPEAK: iPeak,
-                          Constants.VRMS: vRMS,
-                          Constants.PRMS: pRMS,
-                          Constants.PREACT: pReact,
-                          Constants.PAPPARENT: pApparent,
-                          Constants.PF: pf,
-                          Constants.TEMP: temp,
-                          Constants.FREQ: freq}
             ctName = "CT{}".format(ct)
-            retDict[ctName] = sensorDict   
+            sensorDict = readingsDict.get(ctName, {})
+
+                # PJA move these names to Constants
+            sensorDict[Constants.TYPE_KEY] = ctType
+            sensorDict[Constants.NAME] = name
+            sensorDict[Constants.IRMS] = iRMS
+            sensorDict[Constants.IPEAK] = iPeak
+            sensorDict[Constants.VRMS] = vRMS
+            sensorDict[Constants.PRMS] = pRMS
+            sensorDict[Constants.PREACT] = pReact
+            sensorDict[Constants.PAPPARENT] = pApparent
+            sensorDict[Constants.PF] = pf
+            sensorDict[Constants.TEMP] = temp
+            sensorDict[Constants.FREQ] = freq
+            sensorDict[Constants.IAVGSUM] = sensorDict.get(Constants.IAVGSUM, 0) + iRMS
+            sensorDict[Constants.VAVGSUM] = sensorDict.get(Constants.VAVGSUM, 0) + vRMS
+            sensorDict.pop(Constants.IAVG, None)
+            sensorDict.pop(Constants.VAVG, None)
+
+            readingsDict[ctName] = sensorDict
 
         e_ns = ticks_us()-sTime        
-        retDict[Constants.READ_TIME_NS_KEY] = e_ns
+        readingsDict[Constants.READ_TIME_NS_KEY] = e_ns
         if self._wifi:
-            retDict[Constants.RSSI_KEY] = self._wifi.getRSSI()
-        retDict[Constants.BOARD_TEMPERATURE_KEY] = self.getBoardTemp()
-        retDict[Constants.ASSY_KEY] = self._machineConfig.get(Constants.ASSY_KEY)
-        retDict[Constants.YDEV_UNIT_NAME_KEY] = self._machineConfig.get(Constants.YDEV_UNIT_NAME_KEY)
-        retDict[Constants.FIRMWARE_VERSION_STR] = Constants.FIRMWARE_VERSION
-        retDict[Constants.ACTIVE] = self._machineConfig.get(Constants.ACTIVE)
-    
-        return retDict
+            readingsDict[Constants.RSSI_KEY] = self._wifi.getRSSI()
+        readingsDict[Constants.BOARD_TEMPERATURE_KEY] = self.getBoardTemp()
+        readingsDict[Constants.ASSY_KEY] = self._machineConfig.get(Constants.ASSY_KEY)
+        readingsDict[Constants.YDEV_UNIT_NAME_KEY] = self._machineConfig.get(Constants.YDEV_UNIT_NAME_KEY)
+        readingsDict[Constants.FIRMWARE_VERSION_STR] = Constants.FIRMWARE_VERSION
+        readingsDict[Constants.ACTIVE] = self._machineConfig.get(Constants.ACTIVE)
+        # check arbitrarish number to save keeping readings for ever - over 6 months
+        readingcnt = readingsDict.get(Constants.CNTREADINGS, 0)
+        if readingcnt < 99999999:
+            readingsDict[Constants.CNTREADINGS] = readingcnt + 1
+        else:
+            readingsDict[Constants.CNTREADINGS] = 0
+
     
     def _handle(self, cmdDict):
         """@brief Process the commands received and not handled by the BaseCmdHandler as a JSON string from the client and return a response dict.

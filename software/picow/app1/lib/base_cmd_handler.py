@@ -85,7 +85,8 @@ class BaseCmdHandler(object):
                 handled = True
                 
             elif cmd.startswith( BaseCmdHandler.GET_STATS ):
-                responseDict = self.getStatsDict()
+                responseDict = {}
+                self.getStatsDict(responseDict)
                 handled = True
 
             elif cmd.startswith( BaseCmdHandler.SET_CONFIG_CMD ):

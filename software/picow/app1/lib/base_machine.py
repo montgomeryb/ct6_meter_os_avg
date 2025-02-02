@@ -187,15 +187,16 @@ class BaseMachine(Constants):
         """@brief Start the YDev are you there server."""
         if self._yDev is None:
             # start Yview device listener using uasyncio
-            self._yDev = YDev(self._machineConfig)
+            self._yDev = YDev(self._machineConfig, self._uo)
             self._yDev.setGetParamsMethod(self._getParams)
             asyncio.create_task(self._yDev.listen())
 
-    def _getParams(self):
-        """@brief Get the parameters (in a dict) we wish to include in the AYT response message."""
-        if self._projectCmdHandler:
-            self._statsDic = self._projectCmdHandler.getStatsDict()
-        return self._statsDic
+    # # Red Herring - this isn't called - ydev._getParamsMethod is called instead 
+    # def _getParams(self):
+    #     """@brief Get the parameters (in a dict) we wish to include in the AYT response message."""
+    #     if self._projectCmdHandler:
+    #         self._projectCmdHandler.getStatsDict(self._statsDic)
+    #     return self._statsDic
 
     def _getWiFiConfigDict(self):
         """@return Get the WiFi config dict."""

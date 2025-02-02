@@ -54,7 +54,7 @@ def runApp(appID, initialModules):
         sys.path.append("/app1")
         sys.path.append("/app1.lib")
         from app1 import app
-    asyncio.run(app.start(CONFIG_FILENAME, RUNNING_APP_KEY, activeApp))
+    asyncio.run(app.start(CONFIG_FILENAME, RUNNING_APP_KEY, appID))
 
 def debug(msg):
     print("DEBUG: {}".format(msg))
@@ -78,32 +78,36 @@ def getLoadedModules():
         keyList.append(key)
     return keyList
 
+
+def main():
 #Program entry point
-try:
-    addBootLog( "Booting", True)
+    try:
+        addBootLog( "Booting", True)
 
-    initialModules = getLoadedModules()
-    activeApp = getActiveApp()
-    exceptionCount = 0
-    while True:
-        # Save the sys path in case we need to restore it.
-        addedSysPaths = []
-        try:
-            addBootLog( f"activeApp={activeApp}", False)
+        initialModules = getLoadedModules()
+        activeApp = getActiveApp()
+        exceptionCount = 0
+        while True:
+            # Save the sys path in case we need to restore it.
+            addedSysPaths = []
+            try:
+                addBootLog( f"activeApp={activeApp}", False)
 
-            debug("activeApp={}".format(activeApp))
-            runApp(activeApp, initialModules)
+                debug("activeApp={}".format(activeApp))
+                runApp(activeApp, initialModules)
 
-        except Exception as ex:
-            exceptionCount += 1
-            addBootLog( f"Exception {exceptionCount}: ={str(ex)}", False)
-            if ALLOW_APP_TO_CRASH:
-                raise
-            if activeApp == 2:
-                activeApp = 1
-            else:
-                activeApp = 2
-            addBootLog( f"Reverting to app {activeApp}", False)
+            except Exception as ex:
+                exceptionCount += 1
+                addBootLog( f"Exception {exceptionCount}: ={str(ex)}", False)
+                if ALLOW_APP_TO_CRASH:
+                    raise
+                if activeApp == 2:
+                    activeApp = 1
+                else:
+                    activeApp = 2
+                addBootLog( f"Reverting to app {activeApp}", False)
 
-finally:
-    asyncio.new_event_loop()
+    finally:
+        asyncio.new_event_loop()
+
+main()

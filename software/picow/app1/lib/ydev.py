@@ -1,6 +1,10 @@
 import socket
 import json
+import sys
+import uio
+
 import uasyncio as asyncio
+from lib.util import calcStatsAverage
 
 from lib.uo import UOBase
 from lib.wifi import WiFi
@@ -34,12 +38,19 @@ class YDev(UOBase):
            @param machineConfig The machine config that has details of the data to be returned in AYT response messages.
            @param uo A UO instance or None if no user output messages are needed."""
         super().__init__(uo=uo)
-        self._machineConfig = machineConfig
-        self._yDevAYTPort = self._machineConfig.get(Constants.YDEV_AYT_TCP_PORT_KEY)
-        self._running = False
-        self._getParamsMethod = None
-        self.listen()
-                    
+        try:
+            self._machineConfig = machineConfig
+            self._yDevAYTPort = self._machineConfig.get(Constants.YDEV_AYT_TCP_PORT_KEY)
+            self._running = False
+            self._getParamsMethod = None
+            self._paramsDict = {}
+            self.listen()
+        except Exception as e:
+            buf = uio.StringIO()
+            sys.print_exception(e, buf)
+            m = buf.getvalue()
+            self._debug("failed to ydev.__init__ : {}".format(m))
+
     def _send_response(self, sock, remoteAddressPort):
         """@brief sock The UDP socket to send the response on.
            @param remoteAddressPort A tuple containing the address and port to send the response to."""
@@ -55,10 +66,11 @@ class YDev(UOBase):
         jsonDict[YDev.GROUP_NAME_KEY]    = self._machineConfig.get(Constants.YDEV_GROUP_NAME_KEY)
         if self._getParamsMethod is not None:
             # !!! If this method blocks it will delay the AYT message response
-            paramsDict = self._getParamsMethod()
-            for key in paramsDict.keys():
-                jsonDict[key] = paramsDict[key]
-        
+            self._paramsDict = self._getParamsMethod()
+            calcStatsAverage(self._paramsDict)
+            for key in self._paramsDict.keys():
+                jsonDict[key] = self._paramsDict[key]
+
         active = True
         if Constants.ACTIVE in jsonDict:
             active = jsonDict[Constants.ACTIVE]

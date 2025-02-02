@@ -1,8 +1,13 @@
-import  uasyncio as asyncio
+#from lib.umqttsimple import MQTTClient
+
+import uasyncio as asyncio
+import sys
+import uio
 
 from machine import WDT
 
 from constants import Constants
+from lib.util import set_time
 from project import ThisMachine
 from lib.uo import UO
 
@@ -45,8 +50,26 @@ async def start(configFile, activeAppKey, activeApp):
                 wdt.feed()
             await asyncio.sleep(1)
 
+    set_time(uo, wdt)
+    asyncio.create_task(sync_time(uo))
+
     while True:
         delaySeconds = thisMachine.serviceRunningMode()
         if wdt:
             wdt.feed()
         await asyncio.sleep(delaySeconds)
+
+
+async def sync_time(uo):
+    uo.info("calling sync time")
+    while True:
+        try:
+            await asyncio.sleep(21600)
+            uo.info("post sleep")
+            set_time(uo)
+            uo.info("post set_time")
+        except Exception as e:
+            buf = uio.StringIO()
+            sys.print_exception(e, buf)
+            uo.error(buf.getvalue())
+            uo.error("Failed to sync time")
